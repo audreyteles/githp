@@ -15,8 +15,11 @@ import (
 
 // Define colors
 const (
-	blue     = lipgloss.Color("#4287f5")
+	blue     = lipgloss.Color("#0380fc")
 	darkGray = lipgloss.Color("#767676")
+	white    = lipgloss.Color("#ffffff")
+	red      = lipgloss.Color("#FE5F86")
+	green    = lipgloss.Color("#02BA84")
 )
 
 const (
@@ -26,8 +29,11 @@ const (
 
 // Store labels colors variables
 var (
-	inputStyle    = lipgloss.NewStyle().Foreground(blue)
 	continueStyle = lipgloss.NewStyle().Foreground(darkGray)
+	blueStyle     = lipgloss.NewStyle().Foreground(white).BorderForeground(blue).Padding(0, 1).Border(lipgloss.RoundedBorder())
+	whiteStyle    = lipgloss.NewStyle().Foreground(white)
+	successStyle  = lipgloss.NewStyle().Foreground(green)
+	errorStyle    = lipgloss.NewStyle().Foreground(red)
 )
 
 // Form Model
@@ -73,7 +79,6 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-
 		// Quit the app
 		case "ctrl+c", "q", "esc":
 			return f, tea.Quit
@@ -100,26 +105,23 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					if err != nil {
 						log.Println(err)
+						os.Exit(1)
 					}
 				}
 
 				_, err := w.Commit(f.textarea.Value(), &git.CommitOptions{})
 
 				if err != nil {
-					fmt.Println(err)
+					println(errorStyle.Bold(true).Render("Cannot commit changes..."))
+				} else {
+					println(successStyle.Bold(true).Render("Changes were committed successfully!"))
 				}
-
-				println("Changes were committed successfully!")
-
 				return f, tea.Quit
-
 			} else {
 				f.state = commitMessage
 			}
-
 		case "shift+tab":
 			f.state = addFiles
-		// Select an option
 		case " ":
 			if f.state == addFiles {
 				// Toggle selection
@@ -129,14 +131,6 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					f.selected[f.cursor] = struct{}{}
 				}
-			}
-		// Confirm selections
-		case "ctrl+shift":
-
-		default:
-			if !f.textarea.Focused() {
-				cmd = f.textarea.Focus()
-				cmds = append(cmds, cmd)
 			}
 		}
 
@@ -154,28 +148,42 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (f Form) View() string {
 	var s string
-
 	switch f.state {
 	case addFiles:
-		s = "Select the files to add:\n\n"
+		s += blueStyle.Width(42).Align(lipgloss.Center).Render(" Welcome to GITHP ")
+
+		var addFilesForm string
+
+		addFilesForm += whiteStyle.Width(40).Render("\nSelect the files to add:") + "\n\n"
 
 		for i, file := range f.choices {
 			cursor := " "
 			if f.cursor == i {
-				cursor = ">"
+				cursor = whiteStyle.Render(">")
 			}
 			checked := " "
 			if _, ok := f.selected[i]; ok {
-				checked = "x"
+				checked = successStyle.Render("✔")
 			}
-			s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, file)
+			addFilesForm +=
+				fmt.Sprintf(
+					"%s [%s] %s\n",
+					cursor, checked, whiteStyle.Render(file))
 		}
+		addFilesForm += fmt.Sprintf("\nPress %s to select", successStyle.Bold(true).Render("SPACE"))
+		addFilesForm += fmt.Sprintf("\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
+		s += "\n" + blueStyle.Render(addFilesForm) + "\n"
+		s += "\n"
+
 	case commitMessage:
-		s += fmt.Sprintf("\nEnter your commit message:\n\n")
-		s += f.textarea.View()
+		var commitMessageForm string
 
-		s += "\nQUIT NOW!"
+		commitMessageForm += whiteStyle.Width(30).Render("\nEnter your commit message:") + "\n\n"
+		commitMessageForm += f.textarea.View()
+		commitMessageForm += fmt.Sprintf("\n\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
+		commitMessageForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("SHIFT + TAB"))
 
+		s += blueStyle.Render(commitMessageForm) + "\n"
 	}
 	return s
 }
