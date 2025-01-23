@@ -123,7 +123,6 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						os.Exit(1)
 					}
 				}
-
 				_, err := w.Commit(f.textarea.Value(), &git.CommitOptions{})
 
 				if err != nil {
@@ -155,6 +154,8 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right":
 			if f.state == addFiles {
 				f.state = displayCode
+				f.viewport.SetContent(ViewFileDiff(f.choices[f.cursor]))
+
 			}
 		}
 
@@ -202,7 +203,7 @@ func (f Form) View() string {
 
 		s += "\n"
 		if f.state == displayCode {
-			s += lipgloss.JoinHorizontal(lipgloss.Left, blueStyle.Render(addFilesForm), blueStyle.Render(f.viewport.View()))
+			s += lipgloss.JoinHorizontal(lipgloss.Top, blueStyle.Render(addFilesForm), blueStyle.Render(f.viewport.View()))
 		} else {
 			s += blueStyle.Render(addFilesForm)
 		}
