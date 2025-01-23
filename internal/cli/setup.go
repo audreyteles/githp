@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/go-git/go-git/v5"
@@ -25,6 +26,7 @@ const (
 const (
 	addFiles int = iota
 	commitMessage
+	displayCode
 )
 
 // Store labels colors variables
@@ -43,6 +45,7 @@ type Form struct {
 	err      error
 	choices  []string
 	textarea textarea.Model
+	viewport viewport.Model
 	selected map[int]struct{}
 }
 
@@ -58,12 +61,14 @@ func InitialForm() Form {
 	commitMessage := textarea.New()
 	commitMessage.Placeholder = "Your commit message here..."
 	commitMessage.Focus()
+	commitMessage.SetWidth(64)
 
 	return Form{
 		err:      nil,
 		choices:  files,
 		state:    addFiles,
 		textarea: commitMessage,
+		viewport: viewport.New(100, 12),
 		selected: make(map[int]struct{}),
 	}
 }
@@ -84,13 +89,23 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return f, tea.Quit
 		// Go down
 		case "down", "j":
-			if f.cursor < len(f.choices)-1 {
-				f.cursor++
+			if f.state == displayCode {
+				f.viewport.LineDown(1)
+			} else {
+				if f.cursor < len(f.choices)-1 {
+					f.cursor++
+					f.viewport.SetContent(ViewFileDiff(f.choices[f.cursor]))
+				}
 			}
 		// Go up
 		case "up":
-			if f.cursor > 0 {
-				f.cursor--
+			if f.state == displayCode {
+				f.viewport.LineUp(1)
+			} else {
+				if f.cursor > 0 {
+					f.cursor--
+					f.viewport.SetContent(ViewFileDiff(f.choices[f.cursor]))
+				}
 			}
 		case "tab":
 			if f.state == commitMessage {
@@ -132,6 +147,15 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					f.selected[f.cursor] = struct{}{}
 				}
 			}
+		case "left":
+			if f.state == displayCode {
+				f.state = addFiles
+			}
+		// Scroll para baixo
+		case "right":
+			if f.state == addFiles {
+				f.state = displayCode
+			}
 		}
 
 	// We handle errors just like any other message
@@ -148,13 +172,13 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (f Form) View() string {
 	var s string
-	switch f.state {
-	case addFiles:
-		s += blueStyle.Width(42).Align(lipgloss.Center).Render(" Welcome to GITHP ")
 
+	switch f.state {
+	case addFiles, displayCode:
+		s += blueStyle.Width(66).Align(lipgloss.Center).Render(" Welcome to GITHP ")
 		var addFilesForm string
 
-		addFilesForm += whiteStyle.Width(40).Render("\nSelect the files to add:") + "\n\n"
+		addFilesForm += whiteStyle.Width(64).Render("\nSelect the files to add:") + "\n\n"
 
 		for i, file := range f.choices {
 			cursor := " "
@@ -172,13 +196,22 @@ func (f Form) View() string {
 		}
 		addFilesForm += fmt.Sprintf("\nPress %s to select", successStyle.Bold(true).Render("SPACE"))
 		addFilesForm += fmt.Sprintf("\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
-		s += "\n" + blueStyle.Render(addFilesForm) + "\n"
+		addFilesForm += fmt.Sprintf("\nPress %s/%s to move up/down", continueStyle.Bold(true).Render("UP"), continueStyle.Bold(true).Render("DOWN"))
+		addFilesForm += fmt.Sprintf("\nPress %s to view file details", continueStyle.Bold(true).Render("RIGHT"))
+		addFilesForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("LEFT"))
+
+		s += "\n"
+		if f.state == displayCode {
+			s += lipgloss.JoinHorizontal(lipgloss.Left, blueStyle.Render(addFilesForm), blueStyle.Render(f.viewport.View()))
+		} else {
+			s += blueStyle.Render(addFilesForm)
+		}
 		s += "\n"
 
 	case commitMessage:
 		var commitMessageForm string
 
-		commitMessageForm += whiteStyle.Width(30).Render("\nEnter your commit message:") + "\n\n"
+		commitMessageForm += whiteStyle.Width(64).Render("\nEnter your commit message:") + "\n\n"
 		commitMessageForm += f.textarea.View()
 		commitMessageForm += fmt.Sprintf("\n\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
 		commitMessageForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("SHIFT + TAB"))
@@ -217,4 +250,37 @@ func ListFilesChanged() []string {
 
 	// Return files modified
 	return files
+}
+
+func ViewFileDiff(fileName string) string {
+	var out bytes.Buffer
+	var file string
+
+	// Get modified files
+	cmd := exec.Command("git", "diff", fileName)
+	cmd.Stdout = &out
+
+	// Run command
+	err := cmd.Run()
+
+	// Check if it has an error
+	if err != nil {
+		fmt.Printf("An error has occurred %v\n", err)
+		os.Exit(1)
+	}
+
+	lines := strings.Split(out.String(), "\n")
+
+	for _, line := range lines {
+		if line != "" {
+			if strings.Contains(line[0:1], "+") {
+				file += successStyle.Render(line) + "\n"
+			} else if strings.Contains(line[0:1], "-") {
+				file += errorStyle.Render(line) + "\n"
+			} else {
+				file += line + "\n"
+			}
+		}
+	}
+	return file
 }
