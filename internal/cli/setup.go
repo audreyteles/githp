@@ -68,7 +68,7 @@ func InitialForm() Form {
 		choices:  files,
 		state:    addFiles,
 		textarea: commitMessage,
-		viewport: viewport.New(100, 12),
+		viewport: viewport.New(100, 10),
 		selected: make(map[int]struct{}),
 	}
 }
@@ -176,11 +176,15 @@ func (f Form) View() string {
 
 	switch f.state {
 	case addFiles, displayCode:
-		s += blueStyle.Width(66).Align(lipgloss.Center).Render(" Welcome to GITHP ")
 		var addFilesForm string
 
+		// TUI title
+		s += blueStyle.Width(66).Align(lipgloss.Center).Render(" Welcome to GITHP ")
+
+		// First screen title
 		addFilesForm += whiteStyle.Width(64).Render("\nSelect the files to add:") + "\n\n"
 
+		// Iterate all files to show them
 		for i, file := range f.choices {
 			cursor := " "
 			if f.cursor == i {
@@ -195,14 +199,21 @@ func (f Form) View() string {
 					"%s [%s] %s\n",
 					cursor, checked, whiteStyle.Render(file))
 		}
+
+		// Help texts
 		addFilesForm += fmt.Sprintf("\nPress %s to select", successStyle.Bold(true).Render("SPACE"))
 		addFilesForm += fmt.Sprintf("\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
 		addFilesForm += fmt.Sprintf("\nPress %s/%s to move up/down", continueStyle.Bold(true).Render("UP"), continueStyle.Bold(true).Render("DOWN"))
 		addFilesForm += fmt.Sprintf("\nPress %s to view file details", continueStyle.Bold(true).Render("RIGHT"))
 		addFilesForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("LEFT"))
-
 		s += "\n"
+
+		// Get the height from the main view and apply it to the viewport
+		f.viewport.Height = lipgloss.Height(addFilesForm)
+
+		// If the current state is displayCode (meaning the focus is on the code), display the viewport
 		if f.state == displayCode {
+			// Join horizontally the form to add files and
 			s += lipgloss.JoinHorizontal(lipgloss.Top, blueStyle.Render(addFilesForm), blueStyle.Render(f.viewport.View()))
 		} else {
 			s += blueStyle.Render(addFilesForm)
