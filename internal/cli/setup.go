@@ -85,7 +85,7 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		// Quit the app
-		case "ctrl+c", "q", "esc":
+		case "esc", "ctrl+q", "ctrl+c":
 			return f, tea.Quit
 		// Go down
 		case "down", "j":
@@ -205,7 +205,8 @@ func (f Form) View() string {
 		addFilesForm += fmt.Sprintf("\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
 		addFilesForm += fmt.Sprintf("\nPress %s/%s to move up/down", continueStyle.Bold(true).Render("UP"), continueStyle.Bold(true).Render("DOWN"))
 		addFilesForm += fmt.Sprintf("\nPress %s to view file details", continueStyle.Bold(true).Render("RIGHT"))
-		addFilesForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("LEFT"))
+		addFilesForm += fmt.Sprintf("\nPress %s to go back from details", continueStyle.Bold(true).Render("LEFT"))
+		addFilesForm += fmt.Sprintf("\nPress %s/%s to quit", continueStyle.Bold(true).Render("ESC"), continueStyle.Bold(true).Render("CTRL+Q"))
 		s += "\n"
 
 		// Get the height from the main view and apply it to the viewport
@@ -227,6 +228,7 @@ func (f Form) View() string {
 		commitMessageForm += f.textarea.View()
 		commitMessageForm += fmt.Sprintf("\n\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
 		commitMessageForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("SHIFT + TAB"))
+		commitMessageForm += fmt.Sprintf("\nPress %s/%s to quit", continueStyle.Bold(true).Render("ESC"), continueStyle.Bold(true).Render("CTRL+Q"))
 
 		s += blueStyle.Render(commitMessageForm) + "\n"
 	}
