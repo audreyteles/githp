@@ -61,6 +61,7 @@ func InitialForm() Form {
 	commitMessage := textarea.New()
 	commitMessage.Placeholder = "Your commit message here..."
 	commitMessage.Focus()
+	commitMessage.CharLimit = 1000
 	commitMessage.SetWidth(64)
 
 	return Form{
