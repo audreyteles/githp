@@ -110,12 +110,18 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "tab":
 			if f.state == commitMessage {
-				directory := os.Args[1]
+				// Get current directory
+				directory, err := os.Getwd()
 
-				//Opens an already existing repository.
+				if err != nil {
+					log.Println("Error getting current working directory")
+				}
+
+				// Opens an already existing repository
 				r, _ := git.PlainOpen(directory)
 				w, _ := r.Worktree()
 
+				// Make git add to each file selected
 				for index := range f.selected {
 					_, err := w.Add(f.choices[index])
 
@@ -124,7 +130,9 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						os.Exit(1)
 					}
 				}
-				_, err := w.Commit(f.textarea.Value(), &git.CommitOptions{})
+
+				// Make a commit
+				_, err = w.Commit(f.textarea.Value(), &git.CommitOptions{})
 
 				if err != nil {
 					println(errorStyle.Bold(true).Render("Cannot commit changes..."))
