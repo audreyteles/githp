@@ -8,7 +8,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -21,7 +22,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Compile and release
         uses: ngs/go-release.action@v1.0.1
@@ -30,16 +32,18 @@ jobs:
           GOARCH: arm64
           GOOS: linux
         with:
-          entryPoint: ./build.sh 
           args: |
-            --tag v${{ github.run_number }} 
-            --release-name "Release v${{ github.run_number }}"  
-            --draft false 
-            --prerelease false  
+            --tag v${{ github.run_number }}  # Define a tag
+            --release-name "Release v${{ github.run_number }}"  # Nome da release
+            --draft false  # Não é rascunho
+            --prerelease false  # Não é pré-release
 
   upload:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Upload the Go binary
         uses: svenstaro/upload-release-action@v2
         with:
