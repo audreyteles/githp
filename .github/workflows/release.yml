@@ -17,6 +17,8 @@ jobs:
           go-version-file: go.mod
 
       - name: Build
+        env:
+          GO111MODULE: on  # Força o uso de módulos Go
         run: go build -o githp ./cmd/main.go
 
   release:
@@ -29,14 +31,15 @@ jobs:
         uses: ngs/go-release.action@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GO111MODULE: on
           GOARCH: arm64
           GOOS: linux
         with:
           args: |
             --tag v${{ github.run_number }}  # Define a tag
             --release-name "Release v${{ github.run_number }}"  # Nome da release
-            --draft false  # Não é rascunho
-            --prerelease false  # Não é pré-release
+            --draft false
+            --prerelease false
 
   upload:
     runs-on: ubuntu-latest
