@@ -5,41 +5,43 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version-file: go.mod
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
 
-    - name: Build
-      run: go build -o githp ./cmd/main.go
-   
+      - name: Build
+        run: go build -o githp ./cmd/main.go
+
   release:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4  # Corrected checkout action to v4
-    - name: Compile and release
-      uses: ngs/go-release.action@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOARCH: arm64
-        GOOS: linux
-      with:
-        tag_name: v${{ github.run_number }}
-        release_name: "Release v${{ github.run_number }}"
-        draft: false
-        prerelease: false
+      - uses: actions/checkout@v4
+
+      - name: Compile and release
+        uses: ngs/go-release.action@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOARCH: arm64
+          GOOS: linux
+        with:
+          entryPoint: ./build.sh 
+          args: |
+            --tag v${{ github.run_number }} 
+            --release-name "Release v${{ github.run_number }}"  
+            --draft false 
+            --prerelease false  
 
   upload:
     runs-on: ubuntu-latest
     steps:
       - name: Upload the Go binary
-        uses: svenstaro/upload-release-action@v2  # Added the missing 'uses' key
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
