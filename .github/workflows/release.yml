@@ -20,24 +20,31 @@ jobs:
 
     - name: Build
       run: go build -o githp ./cmd/main.go
-    
-    # Create a GitHub Release
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+   
+  release:
+    name: release linux/amd64
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: compile and release
+      uses: ngs/go-release.action@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GOARCH: arm64
+        GOOS: linux
       with:
-        tag_name: v${{ github.run_number }}
-        release_name: "Release v${{ github.run_number }}"
-        draft: false
-        prerelease: false
-
-    # Upload the Go binary to the release
-    - name: Upload the Go binary
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        tag: ${{ github.ref }}
-        file: ./githp
-        file_glob: false
+       tag_name: v${{ github.run_number }}
+       release_name: "Release v${{ github.run_number }}"
+       draft: false
+       prerelease: false
+  upload:
+    name: Upload binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload the Go binary
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: ./githp
+          file_glob: false
