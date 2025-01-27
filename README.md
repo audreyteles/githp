@@ -59,5 +59,5 @@ alias githp='/usr/local/bin/githp'
 After that, you can use it in your git directories:
 
 ```shell
-githp .
+githp
 ```
