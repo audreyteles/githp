@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,6 +15,66 @@ import (
 	"os/exec"
 	"strings"
 )
+
+// keyMap defines a set of keybindings. To work for help it must satisfy
+// key.Map. It could also very easily be a map[string]key.Binding.
+type keyMap struct {
+	Cursor   key.Binding
+	Diff     key.Binding
+	Navigate key.Binding
+	Help     key.Binding
+	Quit     key.Binding
+	Space    key.Binding
+	Commit   key.Binding
+	Back     key.Binding
+}
+
+var keys = keyMap{
+	Cursor: key.NewBinding(
+		key.WithKeys("up", "k", "down", "j"),
+		key.WithHelp("↑/↓:", "move cursor"),
+	),
+	Diff: key.NewBinding(
+		key.WithKeys("right", "l", "down", "j"),
+		key.WithHelp("←/→:", "file diff"),
+	),
+	Navigate: key.NewBinding(
+		key.WithKeys("ctrl+tab", "tab"),
+		key.WithHelp("ctrl+tab/tab:", "navigate"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("ctrl+c", "esc"),
+		key.WithHelp("ctrl+c/esc:", "quit"),
+	),
+	Space: key.NewBinding(
+		key.WithKeys(" "),
+		key.WithHelp("space: ", "toggle file"),
+	),
+	Commit: key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab:", "commit"),
+	),
+	Back: key.NewBinding(
+		key.WithKeys("ctrl+tab"),
+		key.WithHelp("ctrl+tab:", "go back"),
+	),
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view. It's part
+// of the key.Map interface.
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Commit, k.Back, k.Quit}
+}
+
+// FullHelp returns keybindings for the expanded help view. It's part of the
+// key.Map interface.
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Cursor, k.Diff},
+		{k.Navigate, k.Quit, k.Help},
+		{k.Space},
+	}
+}
 
 // Define colors
 const (
@@ -32,7 +94,7 @@ const (
 // Store labels colors variables
 var (
 	continueStyle = lipgloss.NewStyle().Foreground(darkGray)
-	blueStyle     = lipgloss.NewStyle().Foreground(white).BorderForeground(blue).Padding(0, 1).Border(lipgloss.RoundedBorder())
+	blueStyle     = lipgloss.NewStyle().Foreground(white).BorderForeground(blue).Padding(0, 2).Border(lipgloss.RoundedBorder())
 	whiteStyle    = lipgloss.NewStyle().Foreground(white)
 	successStyle  = lipgloss.NewStyle().Foreground(green)
 	errorStyle    = lipgloss.NewStyle().Foreground(red)
@@ -43,7 +105,9 @@ type Form struct {
 	state    int
 	cursor   int
 	err      error
+	keys     keyMap
 	choices  []string
+	help     help.Model
 	textarea textarea.Model
 	viewport viewport.Model
 	selected map[int]struct{}
@@ -64,9 +128,17 @@ func InitialForm() Form {
 	commitMessage.CharLimit = 1000
 	commitMessage.SetWidth(64)
 
+	var helpKeys help.Model
+
+	helpKeys = help.New()
+
+	helpKeys.ShowAll = true
+
 	return Form{
 		err:      nil,
+		keys:     keys,
 		choices:  files,
+		help:     helpKeys,
 		state:    addFiles,
 		textarea: commitMessage,
 		viewport: viewport.New(100, 10),
@@ -86,10 +158,10 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		// Quit the app
-		case "esc", "ctrl+q", "ctrl+c":
+		case "esc", "ctrl+c":
 			return f, tea.Quit
 		// Go down
-		case "down", "j":
+		case "down":
 			if f.state == displayCode {
 				f.viewport.LineDown(1)
 			} else {
@@ -98,6 +170,7 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					f.viewport.SetContent(ViewFileDiff(f.choices[f.cursor]))
 				}
 			}
+
 		// Go up
 		case "up":
 			if f.state == displayCode {
@@ -141,10 +214,12 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return f, tea.Quit
 			} else {
+				f.help.ShowAll = false
 				f.state = commitMessage
 			}
-		case "shift+tab":
+		case "ctrl+tab":
 			f.state = addFiles
+			f.help.ShowAll = true
 		case " ":
 			if f.state == addFiles {
 				// Toggle selection
@@ -159,12 +234,10 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if f.state == displayCode {
 				f.state = addFiles
 			}
-		// Scroll para baixo
 		case "right":
 			if f.state == addFiles {
 				f.state = displayCode
 				f.viewport.SetContent(ViewFileDiff(f.choices[f.cursor]))
-
 			}
 		}
 
@@ -188,7 +261,7 @@ func (f Form) View() string {
 		var addFilesForm string
 
 		// TUI title
-		s += blueStyle.Width(66).Align(lipgloss.Center).Render(" Welcome to GITHP ")
+		s += blueStyle.Width(68).Align(lipgloss.Center).Render(" Welcome to GITHP ")
 
 		// First screen title
 		addFilesForm += whiteStyle.Width(64).Render("\nSelect the files to add:") + "\n\n"
@@ -208,14 +281,6 @@ func (f Form) View() string {
 					"%s [%s] %s\n",
 					cursor, checked, whiteStyle.Render(file))
 		}
-
-		// Help texts
-		addFilesForm += fmt.Sprintf("\nPress %s to select", successStyle.Bold(true).Render("SPACE"))
-		addFilesForm += fmt.Sprintf("\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
-		addFilesForm += fmt.Sprintf("\nPress %s/%s to move up/down", continueStyle.Bold(true).Render("UP"), continueStyle.Bold(true).Render("DOWN"))
-		addFilesForm += fmt.Sprintf("\nPress %s to view file details", continueStyle.Bold(true).Render("RIGHT"))
-		addFilesForm += fmt.Sprintf("\nPress %s to go back from details", continueStyle.Bold(true).Render("LEFT"))
-		addFilesForm += fmt.Sprintf("\nPress %s/%s to quit", continueStyle.Bold(true).Render("ESC"), continueStyle.Bold(true).Render("CTRL+Q"))
 		s += "\n"
 
 		// Get the height from the main view and apply it to the viewport
@@ -228,19 +293,19 @@ func (f Form) View() string {
 		} else {
 			s += blueStyle.Render(addFilesForm)
 		}
-		s += "\n"
 
 	case commitMessage:
 		var commitMessageForm string
 
-		commitMessageForm += whiteStyle.Width(64).Render("\nEnter your commit message:") + "\n\n"
+		commitMessageForm += whiteStyle.Width(64).Render("Enter your commit message:") + "\n\n"
 		commitMessageForm += f.textarea.View()
-		commitMessageForm += fmt.Sprintf("\n\nPress %s to go next", continueStyle.Bold(true).Render("TAB"))
-		commitMessageForm += fmt.Sprintf("\nPress %s to go back", continueStyle.Bold(true).Render("SHIFT + TAB"))
-		commitMessageForm += fmt.Sprintf("\nPress %s/%s to quit", continueStyle.Bold(true).Render("ESC"), continueStyle.Bold(true).Render("CTRL+Q"))
-
-		s += blueStyle.Render(commitMessageForm) + "\n"
+		s += blueStyle.Padding(1).Render(commitMessageForm)
 	}
+
+	s += "\n"
+	s += continueStyle.Padding(0, 0, 0, 1).Render(f.help.View(f.keys))
+	s += "\n"
+
 	return s
 }
 
