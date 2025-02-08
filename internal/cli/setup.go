@@ -19,14 +19,14 @@ import (
 // keyMap defines a set of keybindings. To work for help it must satisfy
 // key.Map. It could also very easily be a map[string]key.Binding.
 type keyMap struct {
-	Cursor   key.Binding
-	Diff     key.Binding
-	Navigate key.Binding
-	Help     key.Binding
-	Quit     key.Binding
-	Space    key.Binding
-	Commit   key.Binding
-	Back     key.Binding
+	Cursor key.Binding
+	Diff   key.Binding
+	Next   key.Binding
+	Help   key.Binding
+	Quit   key.Binding
+	Space  key.Binding
+	Commit key.Binding
+	Back   key.Binding
 }
 
 var keys = keyMap{
@@ -38,9 +38,9 @@ var keys = keyMap{
 		key.WithKeys("right", "l", "down", "j"),
 		key.WithHelp("←/→:", "file diff"),
 	),
-	Navigate: key.NewBinding(
-		key.WithKeys("ctrl+tab", "tab"),
-		key.WithHelp("ctrl+tab/tab:", "navigate"),
+	Next: key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab:", "next"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c", "esc"),
@@ -55,8 +55,8 @@ var keys = keyMap{
 		key.WithHelp("tab:", "commit"),
 	),
 	Back: key.NewBinding(
-		key.WithKeys("ctrl+tab"),
-		key.WithHelp("ctrl+tab:", "go back"),
+		key.WithKeys("ctrl+left"),
+		key.WithHelp("ctrl+left:", "go back"),
 	),
 }
 
@@ -71,8 +71,8 @@ func (k keyMap) ShortHelp() []key.Binding {
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Cursor, k.Diff},
-		{k.Navigate, k.Quit, k.Help},
-		{k.Space},
+		{k.Space, k.Next, k.Help},
+		{k.Quit},
 	}
 }
 
@@ -217,7 +217,7 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				f.help.ShowAll = false
 				f.state = commitMessage
 			}
-		case "ctrl+tab":
+		case "ctrl+left":
 			f.state = addFiles
 			f.help.ShowAll = true
 		case " ":
@@ -247,8 +247,10 @@ func (f Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return f, nil
 	}
 
-	f.textarea, cmd = f.textarea.Update(msg)
-	cmds = append(cmds, cmd)
+	if f.state != addFiles {
+		f.textarea, cmd = f.textarea.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 	return f, tea.Batch(cmds...)
 
 }
